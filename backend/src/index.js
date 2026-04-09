@@ -428,20 +428,24 @@ async function handleExtract(request, env, ctx) {
       );
     }
 
-    const { entities = [], relations = [] } = extractionResult;
+    // 新版返回格式: { nodes, edges, meta }
+    const { nodes = [], edges = [], meta = {} } = extractionResult;
 
-    console.log(`抽取结果: ${entities.length} 个实体, ${relations.length} 条关系`);
+    console.log(`抽取结果: ${nodes.length} 个实体, ${edges.length} 条关系`);
+    if (meta.totalSegments) {
+      console.log(`分段信息: ${meta.totalSegments} 个文本段, ${meta.totalTables} 个表格`);
+    }
 
     // 4. 将抽取的实体写入飞书节点表
-    if (entities.length > 0) {
+    if (nodes.length > 0) {
       const now = new Date().toISOString();
-      const nodeRecords = entities.map((entity) => ({
+      const nodeRecords = nodes.map((node) => ({
         fields: {
-          node_id: `node_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`,
-          name: entity.name || '',
-          category: entity.category || '基础概念',
-          description: entity.description || '',
-          importance: entity.importance || 3,
+          node_id: node.id || `node_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`,
+          name: node.name || '',
+          category: node.category || '基础概念',
+          description: node.description || '',
+          importance: node.importance || 3,
           source_doc: docId,
           created_at: now,
           status: '草稿',
@@ -463,17 +467,17 @@ async function handleExtract(request, env, ctx) {
     }
 
     // 5. 将抽取的关系写入飞书关系表
-    if (relations.length > 0) {
+    if (edges.length > 0) {
       const now = new Date().toISOString();
-      const edgeRecords = relations.map((rel) => ({
+      const edgeRecords = edges.map((edge) => ({
         fields: {
           relation_id: `rel_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`,
-          source: rel.source || '',
-          target: rel.target || '',
-          relation: rel.relation || '',
-          description: rel.description || '',
+          source: edge.source || '',
+          target: edge.target || '',
+          relation: edge.relation || '',
+          description: edge.description || '',
           source_doc: docId,
-          confidence: rel.confidence || 0.8,
+          confidence: edge.confidence || 0.8,
           extraction_method: 'LLM自动抽取',
           created_at: now,
         },
@@ -530,8 +534,8 @@ async function handleExtract(request, env, ctx) {
     return jsonResponse(
       {
         success: true,
-        extractedNodes: entities.length,
-        extractedEdges: relations.length,
+        extractedNodes: nodes.length,
+        extractedEdges: edges.length,
         docId,
         timestamp: new Date().toISOString(),
       },
