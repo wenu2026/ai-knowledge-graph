@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="AI 知识图谱 - 交互式人工智能知识关系可视化">
+    <title>AI 知识图谱</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <!-- 顶部导航栏 -->
+    <header class="header" id="header">
+        <div class="header-left">
+            <div class="header-logo">
+                <i class="fas fa-project-diagram"></i>
+            </div>
+            <div class="header-text">
+                <h1 class="header-title">AI 知识图谱</h1>
+                <p class="header-subtitle">交互式人工智能知识关系可视化平台</p>
+            </div>
+        </div>
+        <div class="header-right">
+            <button class="header-btn" id="btnFullscreen" title="全屏显示">
+                <i class="fas fa-expand"></i>
+            </button>
+            <button class="header-btn" id="btnHelp" title="使用帮助">
+                <i class="fas fa-question-circle"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- 主体布局 -->
+    <div class="app-layout">
+        <!-- 左侧边栏 -->
+        <aside class="sidebar" id="sidebar">
+            <!-- 搜索区域 -->
+            <div class="sidebar-section">
+                <div class="search-box">
+                    <i class="fas fa-search search-icon"></i>
+                    <input
+                        type="text"
+                        id="searchInput"
+                        class="search-input"
+                        placeholder="搜索知识点..."
+                        autocomplete="off"
+                    >
+                    <button class="search-clear" id="searchClear" title="清除搜索">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- 分类筛选 -->
+            <div class="sidebar-section">
+                <h3 class="section-title">
+                    <i class="fas fa-filter"></i>
+                    <span>分类筛选</span>
+                    <button class="section-toggle" id="categoryToggle" title="展开/收起">
+                        <i class="fas fa-chevron-up"></i>
+                    </button>
+                </h3>
+                <div class="category-list" id="categoryList">
+                    <label class="category-item category-item-all">
+                        <input type="checkbox" id="selectAll" checked>
+                        <span class="category-color" style="background: linear-gradient(135deg, #6366f1, #ec4899, #f59e0b);"></span>
+                        <span class="category-name">全部分类</span>
+                        <span class="category-count" id="totalCount">0</span>
+                    </label>
+                    <!-- 动态生成的分类复选框 -->
+                </div>
+            </div>
+
+            <!-- 统计信息 -->
+            <div class="sidebar-section">
+                <h3 class="section-title">
+                    <i class="fas fa-chart-bar"></i>
+                    <span>统计信息</span>
+                </h3>
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-icon"><i class="fas fa-circle-nodes"></i></div>
+                        <div class="stat-info">
+                            <span class="stat-value" id="nodeCount">0</span>
+                            <span class="stat-label">知识点</span>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon"><i class="fas fa-link"></i></div>
+                        <div class="stat-info">
+                            <span class="stat-value" id="edgeCount">0</span>
+                            <span class="stat-label">关系</span>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon"><i class="fas fa-tags"></i></div>
+                        <div class="stat-info">
+                            <span class="stat-value" id="categoryCount">0</span>
+                            <span class="stat-label">分类</span>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon"><i class="fas fa-eye"></i></div>
+                        <div class="stat-info">
+                            <span class="stat-value" id="visibleCount">0</span>
+                            <span class="stat-label">可见节点</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 操作按钮 -->
+            <div class="sidebar-section sidebar-actions">
+                <button class="action-btn action-btn-primary" id="btnAddNode">
+                    <i class="fas fa-plus-circle"></i>
+                    <span>添加节点</span>
+                </button>
+                <button class="action-btn action-btn-secondary" id="btnAddEdge">
+                    <i class="fas fa-arrows-alt-h"></i>
+                    <span>添加关系</span>
+                </button>
+                <button class="action-btn action-btn-outline" id="btnExport">
+                    <i class="fas fa-file-export"></i>
+                    <span>导出数据</span>
+                </button>
+                <button class="action-btn action-btn-danger" id="btnReset">
+                    <i class="fas fa-undo-alt"></i>
+                    <span>重置数据</span>
+                </button>
+            </div>
+        </aside>
+
+        <!-- 主内容区域 -->
+        <main class="main-content" id="mainContent">
+            <!-- 图谱可视化容器 -->
+            <div class="graph-container" id="graphContainer">
+                <svg id="graphSvg"></svg>
+                <!-- 缩放控制 -->
+                <div class="zoom-controls" id="zoomControls">
+                    <button class="zoom-btn" id="zoomIn" title="放大">
+                        <i class="fas fa-plus"></i>
+                    </button>
+                    <button class="zoom-btn" id="zoomReset" title="重置缩放">
+                        <i class="fas fa-crosshairs"></i>
+                    </button>
+                    <button class="zoom-btn" id="zoomOut" title="缩小">
+                        <i class="fas fa-minus"></i>
+                    </button>
+                </div>
+                <!-- 图例 -->
+                <div class="graph-legend" id="graphLegend">
+                    <h4 class="legend-title">
+                        <i class="fas fa-palette"></i> 图例
+                    </h4>
+                    <div class="legend-items" id="legendItems">
+                        <!-- 动态生成 -->
+                    </div>
+                </div>
+                <!-- 加载提示 -->
+                <div class="graph-loading" id="graphLoading">
+                    <div class="loading-spinner"></div>
+                    <p>正在加载知识图谱...</p>
+                </div>
+                <!-- 空状态提示 -->
+                <div class="graph-empty" id="graphEmpty" style="display: none;">
+                    <i class="fas fa-search"></i>
+                    <p>没有找到匹配的知识点</p>
+                    <span>请尝试其他搜索关键词或调整筛选条件</span>
+                </div>
+            </div>
+        </main>
+
+        <!-- 右侧详情面板 -->
+        <aside class="detail-panel" id="detailPanel">
+            <div class="detail-header">
+                <h3 class="detail-title">
+                    <i class="fas fa-info-circle"></i>
+                    <span>节点详情</span>
+                </h3>
+                <button class="detail-close" id="detailClose" title="关闭面板">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="detail-body" id="detailBody">
+                <!-- 节点名称 -->
+                <div class="detail-name-section">
+                    <h2 class="detail-node-name" id="detailNodeName">--</h2>
+                    <span class="detail-category-badge" id="detailCategoryBadge">--</span>
+                </div>
+
+                <!-- 重要性评分 -->
+                <div class="detail-importance">
+                    <span class="detail-label">重要性</span>
+                    <div class="importance-stars" id="detailImportance">
+                        <!-- 动态生成星星 -->
+                    </div>
+                </div>
+
+                <!-- 描述 -->
+                <div class="detail-description">
+                    <span class="detail-label">描述</span>
+                    <p class="detail-desc-text" id="detailDescription">--</p>
+                </div>
+
+                <!-- 连接节点 -->
+                <div class="detail-connections">
+                    <span class="detail-label">
+                        关联节点
+                        <span class="connection-count" id="connectionCount">0</span>
+                    </span>
+                    <ul class="connection-list" id="connectionList">
+                        <!-- 动态生成 -->
+                    </ul>
+                </div>
+
+                <!-- 操作按钮 -->
+                <div class="detail-actions">
+                    <button class="detail-action-btn detail-edit-btn" id="detailEditBtn">
+                        <i class="fas fa-edit"></i>
+                        <span>编辑</span>
+                    </button>
+                    <button class="detail-action-btn detail-delete-btn" id="detailDeleteBtn">
+                        <i class="fas fa-trash-alt"></i>
+                        <span>删除</span>
+                    </button>
+                </div>
+            </div>
+        </aside>
+    </div>
+
+    <!-- 添加/编辑节点模态框 -->
+    <div class="modal-overlay" id="nodeModal">
+        <div class="modal" role="dialog" aria-labelledby="nodeModalTitle">
+            <div class="modal-header">
+                <h3 class="modal-title" id="nodeModalTitle">
+                    <i class="fas fa-plus-circle"></i>
+                    <span>添加节点</span>
+                </h3>
+                <button class="modal-close" id="nodeModalClose" title="关闭">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="nodeForm" novalidate>
+                    <input type="hidden" id="nodeEditId">
+                    <div class="form-group">
+                        <label for="nodeName" class="form-label">
+                            <i class="fas fa-tag"></i> 名称
+                            <span class="required">*</span>
+                        </label>
+                        <input
+                            type="text"
+                            id="nodeName"
+                            class="form-input"
+                            placeholder="请输入知识点名称"
+                            required
+                            maxlength="50"
+                        >
+                        <span class="form-error" id="nodeNameError"></span>
+                    </div>
+                    <div class="form-group">
+                        <label for="nodeCategory" class="form-label">
+                            <i class="fas fa-folder"></i> 分类
+                            <span class="required">*</span>
+                        </label>
+                        <select id="nodeCategory" class="form-select" required>
+                            <option value="">请选择分类</option>
+                            <!-- 动态生成分类选项 -->
+                        </select>
+                        <span class="form-error" id="nodeCategoryError"></span>
+                    </div>
+                    <div class="form-group">
+                        <label for="nodeDescription" class="form-label">
+                            <i class="fas fa-align-left"></i> 描述
+                        </label>
+                        <textarea
+                            id="nodeDescription"
+                            class="form-textarea"
+                            placeholder="请输入知识点描述"
+                            rows="4"
+                            maxlength="500"
+                        ></textarea>
+                        <span class="form-hint" id="nodeDescHint">0 / 500</span>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">
+                            <i class="fas fa-star"></i> 重要性
+                        </label>
+                        <div class="importance-selector" id="importanceSelector">
+                            <span class="importance-star" data-value="1" title="1星"><i class="fas fa-star"></i></span>
+                            <span class="importance-star" data-value="2" title="2星"><i class="fas fa-star"></i></span>
+                            <span class="importance-star" data-value="3" title="3星"><i class="fas fa-star"></i></span>
+                            <span class="importance-star" data-value="4" title="4星"><i class="fas fa-star"></i></span>
+                            <span class="importance-star" data-value="5" title="5星"><i class="fas fa-star"></i></span>
+                        </div>
+                        <input type="hidden" id="nodeImportance" value="3">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="modal-btn modal-btn-cancel" id="nodeModalCancel">
+                    <i class="fas fa-times"></i> 取消
+                </button>
+                <button class="modal-btn modal-btn-confirm" id="nodeModalConfirm">
+                    <i class="fas fa-check"></i> 确认
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 添加关系模态框 -->
+    <div class="modal-overlay" id="edgeModal">
+        <div class="modal" role="dialog" aria-labelledby="edgeModalTitle">
+            <div class="modal-header">
+                <h3 class="modal-title" id="edgeModalTitle">
+                    <i class="fas fa-arrows-alt-h"></i>
+                    <span>添加关系</span>
+                </h3>
+                <button class="modal-close" id="edgeModalClose" title="关闭">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="edgeForm" novalidate>
+                    <div class="form-group">
+                        <label for="edgeSource" class="form-label">
+                            <i class="fas fa-circle" style="font-size: 0.6em;"></i> 源节点
+                            <span class="required">*</span>
+                        </label>
+                        <select id="edgeSource" class="form-select" required>
+                            <option value="">请选择源节点</option>
+                            <!-- 动态生成 -->
+                        </select>
+                        <span class="form-error" id="edgeSourceError"></span>
+                    </div>
+                    <div class="form-group">
+                        <label for="edgeTarget" class="form-label">
+                            <i class="fas fa-circle" style="font-size: 0.6em;"></i> 目标节点
+                            <span class="required">*</span>
+                        </label>
+                        <select id="edgeTarget" class="form-select" required>
+                            <option value="">请选择目标节点</option>
+                            <!-- 动态生成 -->
+                        </select>
+                        <span class="form-error" id="edgeTargetError"></span>
+                    </div>
+                    <div class="form-group">
+                        <label for="edgeRelation" class="form-label">
+                            <i class="fas fa-link"></i> 关系类型
+                            <span class="required">*</span>
+                        </label>
+                        <input
+                            type="text"
+                            id="edgeRelation"
+                            class="form-input"
+                            placeholder="例如：包含、基于、使用、属于..."
+                            required
+                            maxlength="20"
+                        >
+                        <span class="form-error" id="edgeRelationError"></span>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="modal-btn modal-btn-cancel" id="edgeModalCancel">
+                    <i class="fas fa-times"></i> 取消
+                </button>
+                <button class="modal-btn modal-btn-confirm" id="edgeModalConfirm">
+                    <i class="fas fa-check"></i> 确认
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 确认对话框 -->
+    <div class="modal-overlay" id="confirmModal">
+        <div class="modal modal-sm" role="alertdialog" aria-labelledby="confirmTitle">
+            <div class="modal-header">
+                <h3 class="modal-title" id="confirmTitle">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <span>确认操作</span>
+                </h3>
+                <button class="modal-close" id="confirmModalClose" title="关闭">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <p class="confirm-message" id="confirmMessage">确定要执行此操作吗？</p>
+            </div>
+            <div class="modal-footer">
+                <button class="modal-btn modal-btn-cancel" id="confirmCancel">
+                    <i class="fas fa-times"></i> 取消
+                </button>
+                <button class="modal-btn modal-btn-danger" id="confirmOk">
+                    <i class="fas fa-check"></i> 确认
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 帮助模态框 -->
+    <div class="modal-overlay" id="helpModal">
+        <div class="modal" role="dialog" aria-labelledby="helpTitle">
+            <div class="modal-header">
+                <h3 class="modal-title" id="helpTitle">
+                    <i class="fas fa-question-circle"></i>
+                    <span>使用帮助</span>
+                </h3>
+                <button class="modal-close" id="helpModalClose" title="关闭">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body help-content">
+                <div class="help-section">
+                    <h4><i class="fas fa-mouse-pointer"></i> 基本操作</h4>
+                    <ul>
+                        <li><strong>拖拽节点</strong> - 按住节点拖动可调整位置</li>
+                        <li><strong>点击节点</strong> - 点击节点查看详细信息</li>
+                        <li><strong>滚轮缩放</strong> - 滚动鼠标滚轮缩放图谱</li>
+                        <li><strong>拖拽画布</strong> - 按住空白区域拖动平移画布</li>
+                        <li><strong>悬停高亮</strong> - 鼠标悬停节点高亮关联关系</li>
+                    </ul>
+                </div>
+                <div class="help-section">
+                    <h4><i class="fas fa-search"></i> 搜索与筛选</h4>
+                    <ul>
+                        <li>在搜索框输入关键词实时过滤知识点</li>
+                        <li>使用分类复选框按类别筛选显示</li>
+                        <li>搜索和筛选支持组合使用</li>
+                    </ul>
+                </div>
+                <div class="help-section">
+                    <h4><i class="fas fa-cog"></i> 数据管理</h4>
+                    <ul>
+                        <li><strong>添加节点</strong> - 创建新的知识节点</li>
+                        <li><strong>添加关系</strong> - 在两个节点间建立关联</li>
+                        <li><strong>导出数据</strong> - 将图谱数据导出为 JSON 文件</li>
+                        <li><strong>重置数据</strong> - 恢复到初始数据状态</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="modal-btn modal-btn-confirm" id="helpModalOk">
+                    <i class="fas fa-check"></i> 知道了
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast 通知容器 -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <!-- D3.js -->
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <!-- 应用脚本 -->
+    <script src="js/app.js"></script>
+</body>
+</html>
