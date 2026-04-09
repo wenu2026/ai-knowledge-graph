@@ -1,0 +1,24 @@
+name = "ai-knowledge-graph-api"
+main = "src/index.js"
+compatibility_date = "2024-01-01"
+
+# KV 命名空间绑定 - 用于缓存知识图谱数据
+# 需要先运行: wrangler kv:namespace create "GRAPH_CACHE"
+# [[kv_namespaces]]
+# binding = "GRAPH_CACHE"
+# id = "你的KV命名空间ID"
+
+[vars]
+# 以下变量应通过 `wrangler secret put` 设置，不要明文写在这里
+# FEISHU_APP_ID - 飞书应用ID
+# FEISHU_APP_SECRET - 飞书应用密钥
+# LLM_API_KEY - 大模型API密钥
+# LLM_API_BASE - 大模型API基础URL（可选，默认兼容OpenAI格式）
+# FEISHU_BITABLE_APP_TOKEN - 飞书多维表格App Token
+# FEISHU_NODES_TABLE_ID - 知识节点表ID
+# FEISHU_EDGES_TABLE_ID - 知识关系表ID
+# FEISHU_CATEGORIES_TABLE_ID - 分类配置表ID
+# FEISHU_QUEUE_TABLE_ID - 文档队列表ID
+
+[triggers]
+crons = ["0 */6 * * *"] # 每6小时自动同步一次

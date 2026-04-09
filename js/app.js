@@ -20,6 +20,9 @@
   // ============================================================
   const STORAGE_KEY = 'ai-kg-data';
   const DATA_URL = 'data/knowledge.json';
+  // 后端 API 地址（部署到 Cloudflare Workers 后修改为实际地址）
+  const API_URL = 'https://ai-knowledge-graph-api.你的子域.workers.dev/api/graph';
+  const USE_API = false; // 设为 true 以从后端 API 加载数据
   const DEBOUNCE_DELAY = 250;
   const TOAST_DURATION = 3000;
   const MIN_IMPORTANCE = 3;
@@ -315,15 +318,38 @@
   // ============================================================
 
   /**
-   * 从 JSON 文件加载数据
+   * 从 JSON 文件或后端 API 加载数据
+   * 当 USE_API 为 true 时，优先从后端 API 获取最新数据
+   * API 不可用时自动回退到本地静态 JSON 文件
    */
   async function loadData() {
     dom.graphLoading.style.display = 'flex';
 
     try {
-      const response = await fetch(DATA_URL);
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      const data = await response.json();
+      let data;
+
+      if (USE_API) {
+        // 尝试从后端 API 加载
+        try {
+          const response = await fetch(API_URL);
+          if (response.ok) {
+            data = await response.json();
+            console.log('[KG] 从后端 API 加载数据成功');
+          } else {
+            throw new Error(`API 返回 ${response.status}`);
+          }
+        } catch (apiError) {
+          console.warn('[KG] API 加载失败，回退到本地数据:', apiError.message);
+          // 回退到本地 JSON
+          const fallback = await fetch(DATA_URL);
+          data = await fallback.json();
+        }
+      } else {
+        // 从本地 JSON 文件加载
+        const response = await fetch(DATA_URL);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        data = await response.json();
+      }
       state.originalData = JSON.parse(JSON.stringify(data));
 
       // 尝试从 localStorage 合并数据
