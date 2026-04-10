@@ -22,7 +22,7 @@
   const DATA_URL = 'data/knowledge.json';
   // 后端 API 地址（Cloudflare Workers）
   const API_URL = 'https://ai-knowledge-graph-api.wendudu2025.workers.dev/api/graph';
-  const USE_API = true; // 从后端 API 加载飞书数据
+  const USE_API = false; // API 暂未生效，先使用本地 JSON（从飞书导出的数据）
   const DEBOUNCE_DELAY = 250;
   const TOAST_DURATION = 3000;
   const MIN_IMPORTANCE = 3;
