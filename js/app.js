@@ -42,6 +42,15 @@
     velocityDecay: 0.3
   };
 
+  // 性能模式配置
+  const PERF = {
+    maxVisibleNodes: 200,     // 默认最大可见节点数
+    importanceThreshold: 3,   // 默认只显示重要性 >= 此值的节点
+    hideEdgeLabels: true,     // 默认隐藏边标签（节点多时）
+    reduceForces: true,       // 节点多时降低力模拟复杂度
+    useCanvasForEdges: false, // 是否用 Canvas 渲染边（高级优化）
+  };
+
   // ============================================================
   // 应用状态
   // ============================================================
@@ -62,6 +71,7 @@
     activeCategories: new Set(), // 激活的分类
     searchQuery: '',       // 搜索关键词
     isDragging: false,     // 是否正在拖拽
+    importanceThreshold: 0, // 重要性筛选阈值（0=全部显示）
     nodeIdCounter: 0       // 节点 ID 计数器
   };
 
@@ -246,6 +256,8 @@
    * 判断节点是否可见（分类筛选 + 搜索匹配）
    */
   function isNodeVisible(node) {
+    // 重要性筛选
+    if (state.importanceThreshold && node.importance < state.importanceThreshold) return false;
     // 分类筛选
     if (!state.activeCategories.has(node.category)) return false;
     // 搜索过滤
@@ -613,9 +625,14 @@
     }
 
     const nodeCount = state.nodes.length;
-    // 根据节点数量调整力参数
-    const chargeStrength = nodeCount > 200 ? -150 : nodeCount > 100 ? -250 : FORCE_CONFIG.chargeStrength;
-    const linkDistance = nodeCount > 200 ? 60 : nodeCount > 100 ? 80 : FORCE_CONFIG.linkDistance;
+    // 根据节点数量调整力参数（大规模优化）
+    const isLarge = nodeCount > 300;
+    const isMedium = nodeCount > 100;
+    const chargeStrength = isLarge ? -80 : isMedium ? -150 : FORCE_CONFIG.chargeStrength;
+    const linkDistance = isLarge ? 40 : isMedium ? 60 : FORCE_CONFIG.linkDistance;
+    const collideStrength = isLarge ? 0.3 : 0.8;
+    const alphaDecay = isLarge ? 0.05 : isMedium ? 0.03 : FORCE_CONFIG.alphaDecay;
+    const velocityDecay = isLarge ? 0.5 : isMedium ? 0.4 : FORCE_CONFIG.velocityDecay;
 
     state.simulation = d3.forceSimulation(state.nodes)
       .force('link', d3.forceLink(state.edges)
@@ -624,16 +641,16 @@
         .strength(FORCE_CONFIG.linkStrength))
       .force('charge', d3.forceManyBody()
         .strength(chargeStrength)
-        .distanceMax(FORCE_CONFIG.chargeDistanceMax))
+        .distanceMax(isLarge ? 300 : FORCE_CONFIG.chargeDistanceMax))
       .force('center', d3.forceCenter(width / 2, height / 2)
         .strength(FORCE_CONFIG.centerStrength))
       .force('collide', d3.forceCollide()
         .radius(d => getRadius(d.importance) + FORCE_CONFIG.collideRadius)
-        .strength(0.8))
-      .force('x', d3.forceX(width / 2).strength(0.03))
-      .force('y', d3.forceY(height / 2).strength(0.03))
-      .alphaDecay(FORCE_CONFIG.alphaDecay)
-      .velocityDecay(FORCE_CONFIG.velocityDecay)
+        .strength(collideStrength))
+      .force('x', d3.forceX(width / 2).strength(isLarge ? 0.05 : 0.03))
+      .force('y', d3.forceY(height / 2).strength(isLarge ? 0.05 : 0.03))
+      .alphaDecay(alphaDecay)
+      .velocityDecay(velocityDecay)
       .on('tick', ticked);
   }
 
@@ -762,40 +779,51 @@
    * Tick 回调 - 更新元素位置
    */
   function ticked() {
-    // 更新边路径（曲线）
-    state.linkGroup.selectAll('.graph-edge')
-      .attr('d', d => {
-        const dx = (d.target.x || 0) - (d.source.x || 0);
-        const dy = (d.target.y || 0) - (d.source.y || 0);
-        const dr = Math.sqrt(dx * dx + dy * dy) * 1.2;
-        // 使用二次贝塞尔曲线
-        const mx = ((d.source.x || 0) + (d.target.x || 0)) / 2;
-        const my = ((d.source.y || 0) + (d.target.y || 0)) / 2;
-        // 偏移控制点使曲线弯曲
-        const offset = Math.min(dr * 0.15, 30);
-        const nx = -dy / (dr || 1) * offset;
-        const ny = dx / (dr || 1) * offset;
-        return `M${d.source.x || 0},${d.source.y || 0} Q${mx + nx},${my + ny} ${d.target.x || 0},${d.target.y || 0}`;
-      });
+    const nodeCount = state.nodes.length;
+    const isLarge = nodeCount > 300;
 
-    // 更新边标签位置
-    state.edgeLabelGroup.selectAll('.graph-edge-label')
-      .attr('x', d => {
-        const mx = ((d.source.x || 0) + (d.target.x || 0)) / 2;
-        const dx = (d.target.x || 0) - (d.source.x || 0);
-        const dy = (d.target.y || 0) - (d.source.y || 0);
-        const dr = Math.sqrt(dx * dx + dy * dy) || 1;
-        const offset = Math.min(dr * 0.15, 30);
-        return mx + (-dy / dr) * offset;
-      })
-      .attr('y', d => {
-        const my = ((d.source.y || 0) + (d.target.y || 0)) / 2;
-        const dx = (d.target.x || 0) - (d.source.x || 0);
-        const dy = (d.target.y || 0) - (d.source.y || 0);
-        const dr = Math.sqrt(dx * dx + dy * dy) || 1;
-        const offset = Math.min(dr * 0.15, 30);
-        return my + (dx / dr) * offset;
-      });
+    // 更新边路径（曲线）— 大规模时用直线
+    if (isLarge) {
+      state.linkGroup.selectAll('.graph-edge')
+        .attr('x1', d => d.source.x || 0)
+        .attr('y1', d => d.source.y || 0)
+        .attr('x2', d => d.target.x || 0)
+        .attr('y2', d => d.target.y || 0);
+    } else {
+      state.linkGroup.selectAll('.graph-edge')
+        .attr('d', d => {
+          const dx = (d.target.x || 0) - (d.source.x || 0);
+          const dy = (d.target.y || 0) - (d.source.y || 0);
+          const dr = Math.sqrt(dx * dx + dy * dy) * 1.2;
+          const mx = ((d.source.x || 0) + (d.target.x || 0)) / 2;
+          const my = ((d.source.y || 0) + (d.target.y || 0)) / 2;
+          const offset = Math.min(dr * 0.15, 30);
+          const nx = -dy / (dr || 1) * offset;
+          const ny = dx / (dr || 1) * offset;
+          return `M${d.source.x || 0},${d.source.y || 0} Q${mx + nx},${my + ny} ${d.target.x || 0},${d.target.y || 0}`;
+        });
+    }
+
+    // 更新边标签位置（大规模时跳过）
+    if (!isLarge) {
+      state.edgeLabelGroup.selectAll('.graph-edge-label')
+        .attr('x', d => {
+          const mx = ((d.source.x || 0) + (d.target.x || 0)) / 2;
+          const dx = (d.target.x || 0) - (d.source.x || 0);
+          const dy = (d.target.y || 0) - (d.source.y || 0);
+          const dr = Math.sqrt(dx * dx + dy * dy) || 1;
+          const offset = Math.min(dr * 0.15, 30);
+          return mx + (-dy / dr) * offset;
+        })
+        .attr('y', d => {
+          const my = ((d.source.y || 0) + (d.target.y || 0)) / 2;
+          const dx = (d.target.x || 0) - (d.source.x || 0);
+          const dy = (d.target.y || 0) - (d.source.y || 0);
+          const dr = Math.sqrt(dx * dx + dy * dy) || 1;
+          const offset = Math.min(dr * 0.15, 30);
+          return my + (dx / dr) * offset;
+        });
+    }
 
     // 更新节点位置
     state.nodeGroup.selectAll('.graph-node')
@@ -1015,6 +1043,16 @@
         state.selectedNode === n;
       label.style('display', shouldShow ? 'block' : 'none');
     });
+
+    // 自动聚焦到选中节点
+    if (node.x != null && node.y != null && state.zoom) {
+      const width = state.svg.node().clientWidth || 1200;
+      const height = state.svg.node().clientHeight || 800;
+      const scale = 1.5;
+      const x = width / 2 - node.x * scale;
+      const y = height / 2 - node.y * scale;
+      state.zoom.transform(state.g, d3.zoomIdentity.translate(x, y).scale(scale).duration(500));
+    }
 
     showDetailPanel(node);
   }
@@ -1861,6 +1899,28 @@
     // 分类筛选
     dom.selectAll.addEventListener('change', handleSelectAll);
     dom.categoryToggle.addEventListener('click', toggleCategoryCollapse);
+
+    // 重要性筛选滑块
+    const importanceSlider = document.getElementById('importanceSlider');
+    const importanceValue = document.getElementById('importanceValue');
+    const visibleCountHint = document.getElementById('visibleCountHint');
+    const importanceLabels = ['全部', '≥1', '≥2', '≥3', '≥4', '仅5星'];
+
+    importanceSlider.addEventListener('input', function () {
+      const val = parseInt(this.value);
+      state.importanceThreshold = val;
+      importanceValue.textContent = importanceLabels[val];
+
+      // 计算可见节点数
+      const visibleCount = state.nodes.filter(n => {
+        if (val > 0 && n.importance < val) return false;
+        if (!state.activeCategories.has(n.category)) return false;
+        return true;
+      }).length;
+      visibleCountHint.textContent = visibleCount;
+
+      applyFilters();
+    });
 
     // 操作按钮
     dom.btnAddNode.addEventListener('click', openAddNodeModal);

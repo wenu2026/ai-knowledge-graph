@@ -71,6 +71,29 @@
                 </div>
             </div>
 
+            <!-- 重要性筛选 -->
+            <div class="sidebar-section">
+                <h3 class="section-title">
+                    <i class="fas fa-star"></i>
+                    <span>显示密度</span>
+                </h3>
+                <div style="padding: 8px 12px;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                        <span style="font-size:12px;color:#94a3b8;">重要性阈值</span>
+                        <span id="importanceValue" style="font-size:12px;color:#e2e8f0;font-weight:600;">全部</span>
+                    </div>
+                    <input type="range" id="importanceSlider" min="0" max="5" value="0" step="1"
+                        style="width:100%;accent-color:#6366f1;cursor:pointer;">
+                    <div style="display:flex;justify-content:space-between;font-size:10px;color:#64748b;margin-top:2px;">
+                        <span>全部</span>
+                        <span>★★★★★</span>
+                    </div>
+                    <div id="importanceHint" style="font-size:11px;color:#64748b;margin-top:6px;text-align:center;">
+                        当前显示 <strong id="visibleCountHint">598</strong> 个节点
+                    </div>
+                </div>
+            </div>
+
             <!-- 统计信息 -->
             <div class="sidebar-section">
                 <h3 class="section-title">
