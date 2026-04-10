@@ -923,6 +923,12 @@
     if (state.isDragging) return;
     state.hoveredNode = null;
 
+    // 如果有选中的节点，恢复到选中状态的高亮
+    if (state.selectedNode) {
+      selectNode(state.selectedNode);
+      return;
+    }
+
     // 移除高亮
     state.nodeGroup.selectAll('.graph-node')
       .classed('dimmed', false)
@@ -949,7 +955,7 @@
   }
 
   /**
-   * 选中节点
+   * 选中节点 — 高亮关联节点，置灰无关节点
    */
   function selectNode(node) {
     // 取消之前的选中
@@ -959,16 +965,82 @@
     state.nodeGroup.selectAll(`.graph-node[data-id="${node.id}"]`)
       .classed('selected', true);
 
+    // 高亮当前节点及其直接关联的节点
+    const connectedNodeIds = new Set();
+    connectedNodeIds.add(node.id);
+
+    state.edges.forEach(e => {
+      const srcId = typeof e.source === 'object' ? e.source.id : e.source;
+      const tgtId = typeof e.target === 'object' ? e.target.id : e.target;
+      if (srcId === node.id) connectedNodeIds.add(tgtId);
+      if (tgtId === node.id) connectedNodeIds.add(srcId);
+    });
+
+    // 节点：关联的高亮，无关的置灰
+    state.nodeGroup.selectAll('.graph-node')
+      .classed('dimmed', n => !connectedNodeIds.has(n.id))
+      .classed('highlighted', n => n.id !== node.id && connectedNodeIds.has(n.id));
+
+    // 边：关联的高亮，无关的置灰
+    state.linkGroup.selectAll('.graph-edge')
+      .classed('dimmed', e => {
+        const srcId = typeof e.source === 'object' ? e.source.id : e.source;
+        const tgtId = typeof e.target === 'object' ? e.target.id : e.target;
+        return srcId !== node.id && tgtId !== node.id;
+      })
+      .classed('highlighted', e => {
+        const srcId = typeof e.source === 'object' ? e.source.id : e.source;
+        const tgtId = typeof e.target === 'object' ? e.target.id : e.target;
+        return srcId === node.id || tgtId === node.id;
+      })
+      .attr('marker-end', function (e) {
+        const srcId = typeof e.source === 'object' ? e.source.id : e.source;
+        const tgtId = typeof e.target === 'object' ? e.target.id : e.target;
+        return (srcId === node.id || tgtId === node.id) ? 'url(#arrowhead-highlight)' : 'url(#arrowhead)';
+      });
+
+    // 边标签：关联的高亮
+    state.edgeLabelGroup.selectAll('.graph-edge-label')
+      .classed('highlighted', e => {
+        const srcId = typeof e.source === 'object' ? e.source.id : e.source;
+        const tgtId = typeof e.target === 'object' ? e.target.id : e.target;
+        return srcId === node.id || tgtId === node.id;
+      });
+
+    // 显示关联节点的标签
+    state.nodeGroup.selectAll('.graph-node').each(function (n) {
+      const label = d3.select(this).select('.graph-node-label');
+      const shouldShow = n.importance >= 4 ||
+        connectedNodeIds.has(n.id) ||
+        state.selectedNode === n;
+      label.style('display', shouldShow ? 'block' : 'none');
+    });
+
     showDetailPanel(node);
   }
 
   /**
-   * 取消选中节点
+   * 取消选中节点 — 恢复所有节点和边的显示
    */
   function deselectNode() {
-    state.nodeGroup.selectAll('.graph-node').classed('selected', false);
+    state.nodeGroup.selectAll('.graph-node')
+      .classed('selected', false)
+      .classed('dimmed', false)
+      .classed('highlighted', false);
+
+    state.linkGroup.selectAll('.graph-edge')
+      .classed('dimmed', false)
+      .classed('highlighted', false)
+      .attr('marker-end', 'url(#arrowhead)');
+
+    state.edgeLabelGroup.selectAll('.graph-edge-label')
+      .classed('highlighted', false);
+
     state.selectedNode = null;
     closeDetailPanel();
+
+    // 重新应用过滤状态（恢复标签显示）
+    applyFilters();
   }
 
   // ============================================================
