@@ -20,9 +20,9 @@
   // ============================================================
   const STORAGE_KEY = 'ai-kg-data';
   const DATA_URL = 'data/knowledge.json';
-  // 后端 API 地址（部署到 Cloudflare Workers 后修改为实际地址）
-  const API_URL = 'https://ai-knowledge-graph-api.你的子域.workers.dev/api/graph';
-  const USE_API = false; // 设为 true 以从后端 API 加载数据
+  // 后端 API 地址（Cloudflare Workers）
+  const API_URL = 'https://ai-knowledge-graph-api.wendudu2025.workers.dev/api/graph';
+  const USE_API = true; // 从后端 API 加载飞书数据
   const DEBOUNCE_DELAY = 250;
   const TOAST_DURATION = 3000;
   const MIN_IMPORTANCE = 3;

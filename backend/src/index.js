@@ -448,8 +448,8 @@ async function handleExtract(request, env, ctx) {
           importance: node.importance || 3,
           source_doc: docId,
           created_at: now,
-          status: '草稿',
-        },
+          status: '草稿'
+        }
       }));
 
       try {
@@ -457,7 +457,7 @@ async function handleExtract(request, env, ctx) {
           env,
           env.FEISHU_BITABLE_APP_TOKEN,
           env.FEISHU_NODES_TABLE_ID,
-          nodeRecords,
+          nodeRecords
         );
         console.log(`成功写入 ${nodeRecords.length} 个节点到飞书`);
       } catch (err) {
@@ -475,12 +475,12 @@ async function handleExtract(request, env, ctx) {
           source: edge.source || '',
           target: edge.target || '',
           relation: edge.relation || '',
-          description: edge.description || '',
+          description: '',
           source_doc: docId,
-          confidence: edge.confidence || 0.8,
+          confidence: 0.8,
           extraction_method: 'LLM自动抽取',
-          created_at: now,
-        },
+          created_at: now
+        }
       }));
 
       try {
@@ -488,7 +488,7 @@ async function handleExtract(request, env, ctx) {
           env,
           env.FEISHU_BITABLE_APP_TOKEN,
           env.FEISHU_EDGES_TABLE_ID,
-          edgeRecords,
+          edgeRecords
         );
         console.log(`成功写入 ${edgeRecords.length} 条关系到飞书`);
       } catch (err) {

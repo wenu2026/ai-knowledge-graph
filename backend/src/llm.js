@@ -5,8 +5,9 @@
 // 配置常量
 // ============================================================
 const MAX_SEGMENT_LENGTH = 6000; // 每段最大字符数（约 2000 tokens）
-const MIN_SEGMENT_LENGTH = 1000; // 最小分段长度
+const MIN_SEGMENT_LENGTH = 200; // 最小分段长度（降低阈值，确保短章节也能被处理）
 const MAX_CONCURRENT_CALLS = 3; // 最大并发 LLM 调用数
+const MERGE_SHORT_SEGMENTS = true; // 是否合并短章节
 
 // ============================================================
 // Prompt 模板
@@ -15,7 +16,7 @@ const MAX_CONCURRENT_CALLS = 3; // 最大并发 LLM 调用数
 /**
  * 构建实体和关系抽取的系统提示词（针对技术/方法 + 概念/理论类型）
  */
-function buildExtractionPrompt(categories) {
+export function buildExtractionPrompt(categories) {
   const categoryList = categories.map((c) => `- ${c.name}`).join('\n');
 
   return `你是一个专业的 AI 知识图谱构建助手。你的任务是从给定的文本中抽取 AI 相关的知识实体和它们之间的关系。
@@ -105,9 +106,10 @@ function buildTableExtractionPrompt() {
 /**
  * 将文本按章节分段
  * 识别 Markdown 标题作为分段边界
+ * 支持合并短章节、拆分长章节
  */
 function splitBySections(text) {
-  const segments = [];
+  const rawSegments = [];
   const lines = text.split('\n');
 
   let currentSegment = {
@@ -116,16 +118,17 @@ function splitBySections(text) {
     level: 0,
   };
 
+  // 第一步：按标题切分原始段落
   for (const line of lines) {
-    // 匹配 Markdown 标题
     const headerMatch = line.match(/^(#{1,6})\s+(.+)$/);
 
     if (headerMatch) {
-      // 保存当前段落（如果有足够内容）
-      if (currentSegment.content.join('\n').trim().length >= MIN_SEGMENT_LENGTH) {
-        segments.push({
+      // 保存当前段落（无论长度）
+      const content = currentSegment.content.join('\n').trim();
+      if (content.length > 0) {
+        rawSegments.push({
           title: currentSegment.title,
-          content: currentSegment.content.join('\n').trim(),
+          content: content,
           level: currentSegment.level,
         });
       }
@@ -143,45 +146,67 @@ function splitBySections(text) {
 
   // 保存最后一个段落
   const lastContent = currentSegment.content.join('\n').trim();
-  if (lastContent.length >= MIN_SEGMENT_LENGTH) {
-    segments.push({
+  if (lastContent.length > 0) {
+    rawSegments.push({
       title: currentSegment.title,
       content: lastContent,
       level: currentSegment.level,
     });
   }
 
-  // 如果分段后内容过长，进一步拆分
+  // 第二步：合并短章节（如果启用）
+  const mergedSegments = [];
+  let buffer = { title: '', content: '', level: 0, isEmpty: true };
+
+  for (const seg of rawSegments) {
+    if (buffer.isEmpty) {
+      buffer = { ...seg, isEmpty: false };
+    } else if (buffer.content.length + seg.content.length < MAX_SEGMENT_LENGTH) {
+      // 合并到 buffer
+      buffer.title = buffer.title + ' + ' + seg.title;
+      buffer.content = buffer.content + '\n\n' + seg.content;
+    } else {
+      // buffer 已满，保存并开始新的
+      mergedSegments.push(buffer);
+      buffer = { ...seg, isEmpty: false };
+    }
+  }
+
+  // 保存最后的 buffer
+  if (!buffer.isEmpty && buffer.content.trim()) {
+    mergedSegments.push(buffer);
+  }
+
+  // 第三步：拆分过长的段落
   const finalSegments = [];
-  for (const seg of segments) {
+  for (const seg of mergedSegments) {
     if (seg.content.length > MAX_SEGMENT_LENGTH) {
-      // 按段落进一步拆分
       const paragraphs = seg.content.split(/\n\n+/);
-      let buffer = '';
+      let subBuffer = '';
 
       for (const para of paragraphs) {
-        if (buffer.length + para.length > MAX_SEGMENT_LENGTH) {
-          if (buffer.trim()) {
+        if (subBuffer.length + para.length > MAX_SEGMENT_LENGTH) {
+          if (subBuffer.trim()) {
             finalSegments.push({
               title: seg.title,
-              content: buffer.trim(),
+              content: subBuffer.trim(),
               level: seg.level,
             });
           }
-          buffer = para;
+          subBuffer = para;
         } else {
-          buffer += '\n\n' + para;
+          subBuffer += '\n\n' + para;
         }
       }
 
-      if (buffer.trim()) {
+      if (subBuffer.trim()) {
         finalSegments.push({
           title: seg.title,
-          content: buffer.trim(),
+          content: subBuffer.trim(),
           level: seg.level,
         });
       }
-    } else {
+    } else if (seg.content.trim().length >= MIN_SEGMENT_LENGTH) {
       finalSegments.push(seg);
     }
   }
@@ -600,9 +625,4 @@ export async function extractEntitiesAndRelations(text, categories, env) {
   };
 }
 
-/**
- * 构建抽取提示词（导出供外部使用）
- */
-export function buildExtractionPrompt(categories) {
-  return buildExtractionPrompt(categories);
-}
+
